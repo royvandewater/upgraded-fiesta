@@ -10,32 +10,41 @@ type Gaggle interface {
 	// NewConnection returns a connection intended to be consumed
 	// by a single node. This connection should be a node's only
 	// way of communicating with other members of the gaggle.
-	NewConnection() *Connection
-}
-
-// Connection contains an Input and an Output. Nodes will receive
-// message through their Input channel, and emit messages using
-// their Output channel.
-type Connection struct {
-	Input  chan string
-	Output chan string
+	NewConnection() Connection
 }
 
 // New returns a new Gaggle instance
 func New() Gaggle {
 	return &_Gaggle{
-		connections: make([]*Connection, 0),
+		connections: make([]*_Connection, 0),
 	}
 }
 
-type _Gaggle struct {
-	connections []*Connection
+// Connection contains an Input and an Output. Nodes will receive
+// message through their Input channel, and emit messages using
+// their Output channel.
+type Connection interface {
+	// Output returns a read only channel that a node can
+	// use to receive messages
+	Input() <-chan string
+	// Output returns a write only channel that a node can
+	// use to send messages
+	Output() chan<- string
+
+	// Close marks this connection as no longer in use. A connection
+	// cannot be re-opened.
+	Close()
 }
 
-func (g *_Gaggle) NewConnection() *Connection {
-	c := &Connection{
-		Input:  make(chan string),
-		Output: make(chan string),
+type _Gaggle struct {
+	connections []*_Connection
+}
+
+func (g *_Gaggle) NewConnection() Connection {
+	c := &_Connection{
+		input:  make(chan string),
+		output: make(chan string),
+		close:  make(chan bool),
 	}
 	g.connections = append(g.connections, c)
 
@@ -43,17 +52,40 @@ func (g *_Gaggle) NewConnection() *Connection {
 	return c
 }
 
-func (g *_Gaggle) broadcast(sender *Connection, message string) {
+func (g *_Gaggle) broadcast(sender *_Connection, message string) {
 	for _, c := range g.connections {
 		if c == sender {
 			continue
 		}
-		c.Input <- message
+		c.input <- message
 	}
 }
 
-func (g *_Gaggle) proxy(connection *Connection) {
-	for message := range connection.Output {
-		g.broadcast(connection, message)
+func (g *_Gaggle) close(connection *_Connection) {
+	for i, c := range g.connections {
+		if c != connection {
+			continue
+		}
+
+		g.deleteConnectionByIndex(i)
+		close(connection.input)
+	}
+}
+
+func (g *_Gaggle) deleteConnectionByIndex(i int) {
+	g.connections[i] = g.connections[len(g.connections)-1]
+	g.connections[len(g.connections)-1] = nil
+	g.connections = g.connections[:len(g.connections)-1]
+}
+
+func (g *_Gaggle) proxy(connection *_Connection) {
+	for {
+		select {
+		case message := <-connection.output:
+			g.broadcast(connection, message)
+		case <-connection.close:
+			g.close(connection)
+			return
+		}
 	}
 }
