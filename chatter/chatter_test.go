@@ -1,4 +1,4 @@
-package coordination_test
+package chatter_test
 
 import (
 	"time"
@@ -6,19 +6,31 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	coordination "github.com/royvandewater/upgraded-fiesta/coordination"
+	chatter "github.com/royvandewater/upgraded-fiesta/chatter"
 )
 
 var interval = 10 * time.Millisecond
 
-var _ = Describe("Coordination", func() {
+var _ = Describe("Chatter", func() {
+	Describe("NewNode", func() {
+		var node chatter.Node
+		BeforeEach(func() {
+			c := make(chan string)
+			node = chatter.NewNode(c, 1*time.Second)
+		})
+
+		It("Should exist", func() {
+			Expect(node).NotTo(BeNil())
+		})
+	})
+
 	Describe("When a node is instantiated", func() {
 		var channel chan string
-		var node coordination.Node
+		var node chatter.Node
 
 		BeforeEach(func() {
 			channel = make(chan string)
-			node = coordination.NewNode(channel, interval)
+			node = chatter.NewNode(channel, interval)
 			go node.Run()
 		})
 

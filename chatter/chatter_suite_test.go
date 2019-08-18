@@ -1,4 +1,4 @@
-package coordination_test
+package chatter_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestCoordination(t *testing.T) {
+func TestChatter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Coordination Suite")
+	RunSpecs(t, "Chatter Suite")
 }
